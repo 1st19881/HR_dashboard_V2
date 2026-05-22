@@ -197,7 +197,7 @@ function fetchTurnoverData() {
                 if (sqlEl) sqlEl.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
                 return;
             }
-            renderTurnoverChart(data.turnoverData);
+            renderTurnoverChart(data.turnoverData, data.categoryTurnover || {});
             renderReasonChart(data.reasonData);
             
             // Render Category Charts
@@ -227,88 +227,62 @@ function fetchTurnoverData() {
         .catch(err => console.error('Fetch Error:', err));
 }
 
-function renderTurnoverChart(turnoverData) {
+function renderTurnoverChart(turnoverData, categoryTurnover) {
     const labels = turnoverData.map(d => d.month);
-    const rates = turnoverData.map(d => d.rate);
-    const counts = turnoverData.map(d => d.resignations);
+
+    const catKeys = ['SUB', 'PERM', 'PWC', 'OTHER'];
+    const catColors = {
+        SUB:   PALETTE.orange.solid,
+        PERM:  PALETTE.blue.solid,
+        PWC:   PALETTE.purple.solid,
+        OTHER: PALETTE.gray.solid
+    };
+
+    // Build 4 bar datasets with count + rate
+    const datasets = catKeys.map(key => {
+        const catData = (categoryTurnover && categoryTurnover[key]) ? categoryTurnover[key] : [];
+        const counts = labels.map(lbl => {
+            const found = catData.find(d => d.month === lbl);
+            return found ? (found.resignations || 0) : 0;
+        });
+        const rates = labels.map(lbl => {
+            const found = catData.find(d => d.month === lbl);
+            return found ? (found.rate || 0) : 0;
+        });
+
+        return {
+            label: key,
+            data: counts,
+            _rates: rates,   // custom: store rates for datalabel/tooltip
+            backgroundColor: catColors[key] + 'CC',
+            borderColor: catColors[key],
+            borderWidth: 1,
+            borderRadius: 6,
+            borderSkipped: 'bottom',
+            maxBarThickness: 32,
+            datalabels: {
+                anchor: 'end',
+                align: 'top',
+                offset: 2,
+                color: catColors[key],
+                font: { weight: '700', size: 11, family: "'Inter', sans-serif" },
+                formatter: (val) => val > 0 ? val : '',
+                display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0
+            }
+        };
+    });
 
     if (chartInstances['turnoverChart']) chartInstances['turnoverChart'].destroy();
-    
+
     const ctx = document.getElementById('turnoverChart').getContext('2d');
     chartInstances['turnoverChart'] = new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    type: 'line',
-                    label: 'Turnover Rate (%)',
-                    data: rates,
-                    borderColor: '#dc2626',
-                    backgroundColor: 'rgba(220, 38, 38, 0.06)',
-                    borderWidth: 3.5,
-                    pointBackgroundColor: '#dc2626',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 3,
-                    pointRadius: 6,
-                    pointHoverRadius: 9,
-                    pointHoverBorderWidth: 3,
-                    pointHoverBackgroundColor: '#dc2626',
-                    pointStyle: 'circle',
-                    tension: 0.3,
-                    fill: true,
-                    yAxisID: 'yRate',
-                    order: 0,
-                    datalabels: {
-                        anchor: 'end',
-                        align: 'top',
-                        offset: 8,
-                        color: '#fff',
-                        backgroundColor: '#dc2626',
-                        borderRadius: 4,
-                        padding: { top: 3, bottom: 3, left: 6, right: 6 },
-                        font: { weight: 'bold', size: 12, family: "'Inter', sans-serif" },
-                        formatter: (val) => val > 0 ? val + '%' : '',
-                        display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0
-                    }
-                },
-                {
-                    type: 'bar',
-                    label: 'จำนวนลาออก (คน)',
-                    data: counts,
-                    backgroundColor: function(context) {
-                        const chart = context.chart;
-                        const {ctx, chartArea} = chart;
-                        if (!chartArea) return 'rgba(37, 99, 235, 0.5)';
-                        const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                        gradient.addColorStop(0, 'rgba(37, 99, 235, 0.35)');
-                        gradient.addColorStop(1, 'rgba(96, 165, 250, 0.55)');
-                        return gradient;
-                    },
-                    borderRadius: 6,
-                    maxBarThickness: 38,
-                    yAxisID: 'yCount',
-                    order: 1,
-                    datalabels: {
-                        anchor: 'end',
-                        align: 'top',
-                        offset: 2,
-                        color: '#1e40af',
-                        font: { weight: '700', size: 12, family: "'Inter', sans-serif" },
-                        formatter: (val) => val > 0 ? val : '',
-                        display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0
-                    }
-                }
-            ]
-        },
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: { top: 35 } },
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
+            layout: { padding: { top: 30 } },
+            interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
                     display: true,
@@ -317,24 +291,24 @@ function renderTurnoverChart(turnoverData) {
                     labels: {
                         usePointStyle: true,
                         pointStyleWidth: 14,
-                        padding: 20,
-                        font: { size: 13, weight: '600', family: "'Inter', sans-serif" },
+                        padding: 18,
+                        font: { size: 12, weight: '600', family: "'Inter', sans-serif" },
                         color: '#334155'
                     }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
                     titleColor: '#f8fafc',
                     bodyColor: '#e2e8f0',
                     titleFont: { size: 13, weight: '700' },
                     bodyFont: { size: 12 },
-                    padding: 14,
-                    cornerRadius: 10,
-                    boxPadding: 6,
+                    padding: 12,
+                    cornerRadius: 8,
+                    boxPadding: 5,
                     callbacks: {
                         label: function(context) {
-                            if (context.datasetIndex === 0) return ` Rate: ${context.parsed.y}%`;
-                            return ` จำนวน: ${context.parsed.y} คน`;
+                            const rate = context.dataset._rates[context.dataIndex];
+                            return ` ${context.dataset.label}: ${context.parsed.y} คน (${rate}%)`;
                         }
                     }
                 }
@@ -342,24 +316,13 @@ function renderTurnoverChart(turnoverData) {
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: { font: { size: 12, weight: '500' }, color: '#475569' }
+                    ticks: { font: { size: 12, weight: '600' }, color: '#475569' }
                 },
-                yRate: {
-                    type: 'linear',
-                    position: 'left',
+                y: {
                     beginAtZero: true,
-                    max: Math.max(...rates, 5) + 3,
-                    grid: { borderDash: [4, 4], color: 'rgba(220, 38, 38, 0.08)' },
-                    ticks: { callback: (v) => v + '%', font: { size: 12, weight: '600' }, color: '#dc2626' },
-                    title: { display: true, text: 'Turnover Rate (%)', color: '#dc2626', font: { size: 12, weight: '700' } }
-                },
-                yCount: {
-                    type: 'linear',
-                    position: 'right',
-                    beginAtZero: true,
-                    grid: { display: false },
-                    ticks: { stepSize: 1, font: { size: 12, weight: '600' }, color: '#1e40af' },
-                    title: { display: true, text: 'จำนวน (คน)', color: '#1e40af', font: { size: 12, weight: '700' } }
+                    grid: { borderDash: [4, 4], color: '#e2e8f0' },
+                    ticks: { stepSize: 1, font: { size: 12, weight: '600' }, color: '#64748b' },
+                    title: { display: true, text: 'จำนวนลาออก (คน)', color: '#64748b', font: { size: 12, weight: '700' } }
                 }
             }
         },

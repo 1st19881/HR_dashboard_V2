@@ -266,6 +266,7 @@ function fetchHeadcountData(month = '', filters = {}) {
                 renderTrendChart(data.trendData);
                 renderPlantChart(data.plantData);
                 renderTypeChart(data.typeData, data.kpi.headcount_all);
+                renderTypeDistChart(data.typeCountData || []);
                 renderFunctionChart(data.functionData);
                 renderAgeChart(data.ageData);
 
@@ -534,6 +535,127 @@ function renderTypeChart(dataSeries, totalHeadcount) {
     });
 }
 
+// ─── 3.5 Employee Type Overview (Segmented Bar + Metric Tiles) ───
+
+// Color & icon config for employee types
+const TYPE_CONFIG = {
+    'DIRECT':   { color: '#2563eb', colorLight: '#dbeafe', gradient: ['#2563eb', '#60a5fa'], icon: 'fa-solid fa-helmet-safety',  label: 'Direct' },
+    'INDIRECT': { color: '#8b5cf6', colorLight: '#ede9fe', gradient: ['#8b5cf6', '#a78bfa'], icon: 'fa-solid fa-briefcase',      label: 'Indirect' },
+    'ADMIN':    { color: '#0d9488', colorLight: '#ccfbf1', gradient: ['#0d9488', '#2dd4bf'], icon: 'fa-solid fa-user-gear',      label: 'Admin' },
+    'MANAGER':  { color: '#d97706', colorLight: '#fef3c7', gradient: ['#d97706', '#fbbf24'], icon: 'fa-solid fa-user-tie',       label: 'Manager' },
+    'OTHER':    { color: '#64748b', colorLight: '#f1f5f9', gradient: ['#64748b', '#94a3b8'], icon: 'fa-solid fa-user',           label: 'Other' }
+};
+
+function getTypeConfig(name) {
+    return TYPE_CONFIG[name] || TYPE_CONFIG['OTHER'];
+}
+
+// Segmented Composition Bar
+function renderTypeSegmentBar(dataSeries) {
+    const container = document.getElementById('typeSegmentBar');
+    if (!container || !dataSeries || dataSeries.length === 0) return;
+
+    const total = dataSeries.reduce((sum, d) => sum + d.qty, 0);
+    if (total === 0) { container.innerHTML = ''; return; }
+
+    let html = '';
+    dataSeries.forEach((d, i) => {
+        const cfg = getTypeConfig(d.name);
+        const pct = (d.qty / total * 100);
+        const isFirst = i === 0;
+        const isLast = i === dataSeries.length - 1;
+        const radius = isFirst ? '18px 0 0 18px' : (isLast ? '0 18px 18px 0' : '0');
+        if (dataSeries.length === 1) var soloRadius = '18px';
+
+        html += `<div class="type-segment" 
+            style="flex-basis: 0%; background: linear-gradient(135deg, ${cfg.gradient[0]}, ${cfg.gradient[1]}); border-radius: ${soloRadius || radius};"
+            data-target-basis="${pct}%"
+            title="${d.name}: ${formatNumber(d.qty)} คน (${pct.toFixed(1)}%)">
+            <span class="seg-label">
+                <span class="seg-name">${d.name}</span>
+                <span class="seg-pct">${pct >= 8 ? pct.toFixed(1) + '%' : ''}</span>
+            </span>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+
+    // Animate segment widths
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            container.querySelectorAll('.type-segment').forEach(seg => {
+                seg.style.flexBasis = seg.dataset.targetBasis;
+            });
+        }, 50);
+    });
+}
+
+// Metric Tiles with SVG Circular Progress
+function renderTypeMetricTiles(dataSeries) {
+    const container = document.getElementById('typeMetricTiles');
+    if (!container || !dataSeries || dataSeries.length === 0) return;
+
+    const circumference = 2 * Math.PI * 20; // radius = 20
+
+    let html = '';
+    dataSeries.forEach((d) => {
+        const cfg = getTypeConfig(d.name);
+        const offset = circumference - (d.pct / 100) * circumference;
+
+        html += `
+        <div class="type-metric-tile" style="--tile-color: ${cfg.color};">
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,${cfg.gradient[0]},${cfg.gradient[1]});opacity:0;transition:opacity 0.3s;" class="tile-accent-bar"></div>
+            <div class="type-ring-wrap">
+                <svg viewBox="0 0 48 48">
+                    <circle class="type-ring-bg" cx="24" cy="24" r="20"></circle>
+                    <circle class="type-ring-fill" cx="24" cy="24" r="20" 
+                        stroke="${cfg.color}"
+                        stroke-dasharray="${circumference}"
+                        stroke-dashoffset="${circumference}"
+                        data-target-offset="${offset}"></circle>
+                </svg>
+                <div class="type-ring-icon" style="color: ${cfg.color};">
+                    <i class="${cfg.icon}"></i>
+                </div>
+            </div>
+            <div class="type-metric-info">
+                <div class="type-metric-name">${cfg.label}</div>
+                <div class="type-metric-count" style="color: ${cfg.color};">${formatNumber(d.qty)}</div>
+                <span class="type-metric-pct" style="background: ${cfg.colorLight}; color: ${cfg.color};">${d.pct.toFixed(1)}%</span>
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+
+    // Animate ring fills + accent bars
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            container.querySelectorAll('.type-ring-fill').forEach(ring => {
+                ring.style.strokeDashoffset = ring.dataset.targetOffset;
+            });
+        }, 200);
+    });
+
+    // Hover accent bar logic (CSS handles via parent :hover)
+    container.querySelectorAll('.type-metric-tile').forEach(tile => {
+        const bar = tile.querySelector('.tile-accent-bar');
+        tile.addEventListener('mouseenter', () => { if (bar) bar.style.opacity = '1'; });
+        tile.addEventListener('mouseleave', () => { if (bar) bar.style.opacity = '0'; });
+    });
+}
+
+// Combined call
+function renderTypeDistChart(dataSeries) {
+    // Update total
+    const totalEl = document.getElementById('typeOverviewTotalNum');
+    if (totalEl && dataSeries && dataSeries.length > 0) {
+        const total = dataSeries.reduce((sum, d) => sum + d.qty, 0);
+        totalEl.textContent = formatNumber(total);
+    }
+    renderTypeMetricTiles(dataSeries);
+}
+
 // ─── 4. Headcount By Function (Gradient Bar) ───
 function renderFunctionChart(dataSeries) {
     const labels = dataSeries.map(d => d.name);
@@ -582,4 +704,121 @@ function renderAgeChart(dataSeries) {
             scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#64748b' } }, y: { max: yMax, grid: { borderDash: [5, 5], color: '#e2e8f0' }, ticks: { callback: v => v + '%', color: '#64748b' } } }
         }
     });
+}
+
+/**
+ * Export Employee Table to Excel (.xlsx)
+ * ดึงข้อมูลทั้งหมดจาก server (ไม่ใช่แค่หน้าปัจจุบัน) แล้วสร้างไฟล์ Excel
+ */
+function exportTableToExcel() {
+    const btn = document.getElementById('btnExportExcel');
+    if (!btn) return;
+
+    // Show loading state
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> กำลังส่งออก...';
+    btn.classList.add('exporting');
+
+    // Build params from current filters
+    const filters = getFilters();
+    const params = new URLSearchParams();
+    if (filters.plant)        params.set('plant', filters.plant);
+    if (filters.emp_type)     params.set('emp_type', filters.emp_type);
+    if (filters.emp_category) params.set('emp_category', filters.emp_category);
+    if (filters.function)     params.set('function', filters.function);
+    if (filters.dept)         params.set('dept', filters.dept);
+    params.set('export', '1'); // Flag to get all data (no pagination)
+
+    fetch(`api/get_employee_list.php?${params.toString()}`)
+        .then(response => response.json())
+        .then(json => {
+            const data = json.data || [];
+            if (data.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ไม่มีข้อมูล',
+                    text: 'ไม่พบข้อมูลพนักงานสำหรับ Export',
+                    confirmButtonColor: '#2563eb'
+                });
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('exporting');
+                return;
+            }
+
+            // Define column headers
+            const headers = [
+                'Plant', 'Company', 'Employee ID', 'Full Name',
+                'Employee Category', 'Category(By Nationality)',
+                'Function', 'Department', 'Section',
+                'Cost Center', 'Band', 'Grade',
+                'Position Group', 'Years of Service'
+            ];
+
+            // Map data to rows
+            const rows = data.map(emp => [
+                emp.PLANTNO || '',
+                emp.COMPANY || '',
+                emp.CODEMPID || '',
+                emp.NAMEMPT || '',
+                emp.EMP_CATEGORY_FULL || '',
+                emp.CODNATT || '',
+                emp.FUNC_NAME || '',
+                emp.DEPT_NAME || '',
+                emp.SEC_NAME || '',
+                emp.COSTCT || '',
+                emp.BAND || '',
+                emp.GRADE || '',
+                emp.POS_NAME || '',
+                emp.WORKING_YEAR || ''
+            ]);
+
+            // Create worksheet
+            const wsData = [headers, ...rows];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // Auto-width columns
+            const colWidths = headers.map((h, i) => {
+                let maxLen = h.length;
+                rows.forEach(row => {
+                    const cellLen = String(row[i] || '').length;
+                    if (cellLen > maxLen) maxLen = cellLen;
+                });
+                return { wch: Math.min(maxLen + 2, 40) };
+            });
+            ws['!cols'] = colWidths;
+
+            // Create workbook and export
+            const wb = XLSX.utils.book_new();
+            const today = new Date();
+            const dateStr = today.getFullYear() + 
+                           String(today.getMonth() + 1).padStart(2, '0') + 
+                           String(today.getDate()).padStart(2, '0');
+            XLSX.utils.book_append_sheet(wb, ws, 'HeadCount Data');
+            XLSX.writeFile(wb, `HeadCount_Data_${dateStr}.xlsx`);
+
+            // Success feedback
+            Swal.fire({
+                icon: 'success',
+                title: 'Export สำเร็จ!',
+                text: `ส่งออกข้อมูล ${formatNumber(data.length)} รายการ เรียบร้อยแล้ว`,
+                timer: 2500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            });
+
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('exporting');
+        })
+        .catch(err => {
+            console.error('Export Error:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Export ล้มเหลว',
+                text: 'เกิดข้อผิดพลาดในการส่งออกข้อมูล',
+                confirmButtonColor: '#2563eb'
+            });
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('exporting');
+        });
 }

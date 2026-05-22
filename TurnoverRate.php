@@ -102,7 +102,7 @@ include 'includes/header.php';
                         </select>
                     </div>
                 </div>
-                <div id="turnoverChart-wrap" style="height: 350px;"><canvas id="turnoverChart"></canvas></div>
+                <div id="turnoverChart-wrap" style="height: 400px;"><canvas id="turnoverChart"></canvas></div>
             </div>
         </div>
     </div>

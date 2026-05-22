@@ -237,13 +237,35 @@ try {
         if ($p['PGROUP'] !== 'OTHER' || $p['QTY'] > 0) $plantData[] = ['name' => $p['PGROUP'], 'y' => (int)$p['QTY']];
     }
 
-    // Donut: Type %
+    // Donut: Type % (แยก SUB ย่อย)
     $typeData = [];
     if ($headTotal > 0) {
         $cats = ['PERM' => 'PERM', 'PWC' => 'PWC', 'SUB Thai' => 'SUB_THAI', 'SUB Myanmar' => 'SUB_MYANMAR', 'SUB Cambodia' => 'SUB_CAMBODIA', 'OTHER' => 'OTHER'];
         foreach ($cats as $lbl => $k) {
             $v = (int)($row[$k] ?? 0);
-            if ($v > 0) $typeData[] = ['name' => $lbl, 'y' => round($v / $headTotal * 100, 1)];
+            if ($v > 0) {
+                $typeData[] = ['name' => $lbl, 'y' => round($v / $headTotal * 100, 1)];
+            }
+        }
+    }
+
+    // Metric Tiles: Type Count grouped by type_name (ADMIN, DIRECT, INDIRECT, MANAGER + OTHER)
+    $typeCountData = [];
+    if ($headTotal > 0) {
+        $typeSql = "SELECT 
+            CASE WHEN type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN type_name ELSE 'OTHER' END AS grp_name, 
+            COUNT(*) AS qty 
+            FROM ($baseSql) t1 $headcountWhere $activeCondition 
+            GROUP BY CASE WHEN type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN type_name ELSE 'OTHER' END 
+            ORDER BY qty DESC";
+        $typeResults = fetchAllAssoc($conn, $typeSql, $binds);
+        foreach ($typeResults as $tr) {
+            $qty = (int)$tr['QTY'];
+            $typeCountData[] = [
+                'name' => $tr['GRP_NAME'],
+                'qty'  => $qty,
+                'pct'  => round($qty / $headTotal * 100, 1)
+            ];
         }
     }
 
@@ -296,6 +318,7 @@ try {
         'trendData' => $trendData,
         'plantData' => $plantData,
         'typeData' => $typeData,
+        'typeCountData' => $typeCountData,
         'functionData' => $functionData,
         'ageData' => $ageData,
         'debug' => [

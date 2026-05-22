@@ -163,7 +163,28 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <!-- Row 4: Breakdown 1 -->
+    <!-- Row: Employee Type Overview (Metric Tiles) -->
+    <div class="row g-3 mb-1">
+        <div class="col-12">
+            <div class="chart-card mb-3">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="chart-card-title mb-0">
+                        <i class="fa-solid fa-layer-group me-2" style="color: var(--accent);"></i>Employee Type Overview
+                    </div>
+                    <div id="typeOverviewTotal" class="d-flex align-items-center gap-2" style="font-size:0.82rem;color:var(--text-muted);font-weight:600;">
+                        <i class="fa-solid fa-users" style="color:var(--accent);"></i>
+                        <span>Total: <strong id="typeOverviewTotalNum" style="color:var(--text-primary);font-size:1rem;">...</strong></span>
+                    </div>
+                </div>
+                <!-- Metric Tiles -->
+                <div id="typeMetricTiles" class="type-metric-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row: Breakdown 1 -->
     <div class="row g-3 mb-1">
         <div class="col-12 col-xl-5">
             <div class="chart-card mb-3">
@@ -199,6 +220,15 @@ include 'includes/header.php';
     <div class="row">
         <div class="col-12">
             <div class="data-table-container">
+                <div class="data-table-header d-flex align-items-center justify-content-between px-3 py-2" style="border-bottom: 1px solid var(--border-color);">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-table-list" style="color: var(--accent);"></i>
+                        <span style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Employee Data</span>
+                    </div>
+                    <button class="btn btn-sm btn-export-excel" id="btnExportExcel" onclick="exportTableToExcel()">
+                        <i class="fa-solid fa-file-excel me-1"></i> Export Excel
+                    </button>
+                </div>
                 <div class="table-responsive">
                     <table id="employeeTable" class="table table-hover mb-0" style="width:100%">
                         <thead>
