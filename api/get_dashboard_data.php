@@ -51,7 +51,8 @@ SELECT
     SUM(CASE WHEN emp_category_full = 'SUB Thai'     THEN 1 ELSE 0 END) AS sub_thai,
     SUM(CASE WHEN emp_category_full = 'SUB Myanmar'  THEN 1 ELSE 0 END) AS sub_myanmar,
     SUM(CASE WHEN emp_category_full = 'SUB Cambodia' THEN 1 ELSE 0 END) AS sub_cambodia,
-    SUM(CASE WHEN emp_category_full = 'OTHER' THEN 1 ELSE 0 END) AS other,
+    SUM(CASE WHEN emp_category_full = 'SUB'          THEN 1 ELSE 0 END) AS sub,
+    SUM(CASE WHEN emp_category_full NOT IN ('PERM', 'PWC', 'SUB Thai', 'SUB Myanmar', 'SUB Cambodia', 'SUB') THEN 1 ELSE 0 END) AS other,
     COUNT(*) AS headcount_all,
     SUM(CASE WHEN codsex != 'F' THEN 1 ELSE 0 END) AS male_count,
     SUM(CASE WHEN codsex  = 'F' THEN 1 ELSE 0 END) AS female_count
@@ -61,7 +62,8 @@ FROM (
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-               ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+               WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+               ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
            END AS emp_category_full
     FROM (
         SELECT
@@ -99,7 +101,7 @@ FROM (
                 WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                 WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                 WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                ELSE 'OTHER'
+                ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
             END AS emp_category_by_prefix,
             (SELECT descodt FROM temploy2 e2, tcodnatn cn
              WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
@@ -125,11 +127,11 @@ WHERE 1=1";
 
 $where = "";
 $binds = [];
-if (!empty($plant))        { $where .= " AND PlantNO = :plant";              $binds[':plant'] = $plant; }
-if (!empty($emp_type))     { $where .= " AND type_name = :emp_type";          $binds[':emp_type'] = $emp_type; }
-if (!empty($emp_category)) { $where .= " AND emp_category_full = :emp_category";  $binds[':emp_category'] = $emp_category; }
-if (!empty($function))     { $where .= " AND func_name = :function";          $binds[':function'] = $function; }
-if (!empty($dept))         { $where .= " AND UPPER(dept) = UPPER(:dept)";       $binds[':dept'] = $dept; }
+$where .= buildMultiFilter($plant,        'PlantNO',           'plant',        $binds);
+$where .= buildMultiFilter($emp_type,     "CASE WHEN type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN type_name ELSE 'OTHER' END",         'emp_type',     $binds);
+$where .= buildMultiFilter($emp_category, 'emp_category_full', 'emp_category', $binds);
+$where .= buildMultiFilter($function,     'func_name',         'func',         $binds);
+$where .= buildMultiFilter($dept,         'dept',              'dept',         $binds, true);
 
 $kpiSql .= $where;
 
@@ -145,17 +147,18 @@ try {
         'sub_thai' => (int)$row['SUB_THAI'],
         'sub_myanmar' => (int)$row['SUB_MYANMAR'],
         'sub_cambodia' => (int)$row['SUB_CAMBODIA'],
+        'sub' => (int)$row['SUB'],
         'other' => (int)$row['OTHER'],
         'headcount_all' => $headcount,
         'male_pct' => $headcount > 0 ? round((int)$row['MALE_COUNT'] / $headcount * 100) : 0,
         'female_pct' => $headcount > 0 ? round((int)$row['FEMALE_COUNT'] / $headcount * 100) : 0
     ];
-
+ 
     // 2. คำนวณ typeData สำหรับ Donut Chart
     $typeData = [];
     if ($headcount > 0) {
         $categories = [
-            'PERM' => 'PERM', 'PWC' => 'PWC', 'SUB Thai' => 'SUB_THAI', 
+            'PERM' => 'PERM', 'PWC' => 'PWC', 'SUB' => 'SUB', 'SUB Thai' => 'SUB_THAI', 
             'SUB Myanmar' => 'SUB_MYANMAR', 'SUB Cambodia' => 'SUB_CAMBODIA', 'OTHER' => 'OTHER'
         ];
         foreach ($categories as $label => $key) {
@@ -176,7 +179,8 @@ try {
                 WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                 WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                 WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-                ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+                WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+                ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
             END AS emp_category_full
         FROM (
             SELECT
@@ -214,7 +218,7 @@ try {
                     WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                     WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                     WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                    ELSE 'OTHER'
+                    ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
                 END AS emp_category_by_prefix,
                 (SELECT descodt FROM temploy2 e2, tcodnatn cn
                  WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
@@ -237,12 +241,8 @@ try {
     ) t1
     WHERE func_name IS NOT NULL";
 
-    // ติดตัวกรองเดิมสำหรับ Query Function
-    if (!empty($plant))        { $sqlFunc .= " AND PlantNO = :plant"; }
-    if (!empty($emp_type))     { $sqlFunc .= " AND type_name = :emp_type"; }
-    if (!empty($emp_category)) { $sqlFunc .= " AND emp_category_full = :emp_category"; }
-    if (!empty($function))     { $sqlFunc .= " AND func_name = :function"; }
-    if (!empty($dept))         { $sqlFunc .= " AND UPPER(dept) = UPPER(:dept)"; }
+    // ติดตัวกรองเดิมสำหรับ Query Function (ใช้ $where ที่สร้างไว้แล้ว)
+    $sqlFunc .= $where;
 
     $sqlFunc .= " GROUP BY func_name ORDER BY qty DESC";
     $funcResults = fetchAllAssoc($conn, $sqlFunc, $binds);
@@ -270,6 +270,16 @@ try {
     $trendExcl = " AND namempt NOT LIKE '%จุฬางกูร%'";
     $trendWhere = $where . $trendExcl;
 
+    // Reason Codes ที่ไม่นำมาคำนวณ Turnover Rate (CODCODEC จาก TCODEXEM)
+    $turnoverExclReasons = ['11', '12', '15', '16', '17'];
+    $reasonPlaceholders = implode(',', array_map(function($v) { return "'" . $v . "'"; }, $turnoverExclReasons));
+    $turnoverReasonExclSql = " AND NOT EXISTS (
+        SELECT 1 FROM HRMS.TTEXEMPT tex
+        WHERE tex.CODEMPID = t1.codempid
+          AND tex.CODEXEMP IN ($reasonPlaceholders)
+          AND tex.rowid = (SELECT MAX(rowid) FROM HRMS.TTEXEMPT WHERE CODEMPID = t1.codempid)
+    )";
+
     if ($isCurrentYear) {
         // วิธี Rollback
         $tBaseSql = "SELECT COUNT(*) as cnt FROM (
@@ -278,7 +288,8 @@ try {
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-                       ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+                       WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+                       ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
                    END AS emp_category_full
             FROM (
             SELECT 
@@ -316,7 +327,7 @@ try {
                     WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                     WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                     WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                    ELSE 'OTHER'
+                    ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
                 END AS emp_category_by_prefix,
                 (SELECT descodt FROM temploy2 e2, tcodnatn cn
                  WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
@@ -346,7 +357,8 @@ try {
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-                       ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+                       WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+                       ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
                    END AS emp_category_full
             FROM (
             SELECT 
@@ -387,7 +399,7 @@ try {
                     WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                     WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                     WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                    ELSE 'OTHER'
+                    ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
                 END AS emp_category_by_prefix,
                 (SELECT descodt FROM temploy2 e2, tcodnatn cn
                  WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
@@ -445,7 +457,8 @@ try {
                                WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                                WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                                WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-                               ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+                               WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+                               ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
                            END AS emp_category_full
                     FROM (
                         SELECT
@@ -483,7 +496,7 @@ try {
                                 WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                                 WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                                 WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                                ELSE 'OTHER'
+                                ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
                             END AS emp_category_by_prefix,
                             (SELECT descodt FROM temploy2 e2, tcodnatn cn
                              WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
@@ -518,14 +531,15 @@ try {
     // ดึงยอดลาออกรายเดือน
     $resSql = "SELECT TO_CHAR(dteeffex, 'MM') as mm, COUNT(*) as qty FROM (
         SELECT 
-            PlantNO, type_name, emp_category_full, func_name, dept, namempt, codcomp1, staemp, dteeffex
+            PlantNO, type_name, emp_category_full, func_name, dept, codempid, namempt, codcomp1, staemp, dteeffex
         FROM (
             SELECT t1.*,
                    CASE
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                        WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-                       ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+                       WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+                       ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
                    END AS emp_category_full
             FROM (
                 SELECT
@@ -563,7 +577,7 @@ try {
                         WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                         WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                         WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                        ELSE 'OTHER'
+                        ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
                     END AS emp_category_by_prefix,
                     (SELECT descodt FROM temploy2 e2, tcodnatn cn
                      WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
@@ -573,7 +587,7 @@ try {
                     END AS type_name,
                     (SELECT UPPER(TRIM(ORG_SHORT)) FROM HRMS_MAIN_DEPART WHERE TRIM(COST_CENTER) = TRIM(t2.namcent5) AND ROWNUM = 1) AS func_name,
                     SUBSTR(t2.namcent4, INSTR(t2.namcent4, '_') + 1) AS dept,
-                    t1.namempt, t1.codcomp1, t1.staemp, t1.dteeffex
+                    t1.codempid, t1.namempt, t1.codcomp1, t1.staemp, t1.dteeffex
                 FROM temploy1 t1, tcenter t2
                 WHERE t1.codcomp = t2.codcomp
                   AND t1.codcomp1 NOT IN (
@@ -584,7 +598,7 @@ try {
             ) t1
         ) t1
         WHERE staemp = 9 AND TO_CHAR(dteeffex, 'YYYY') = '{$trendYear}' $trendExcl
-    ) t1 WHERE 1=1 $trendWhere GROUP BY TO_CHAR(dteeffex, 'MM') ORDER BY mm";
+    ) t1 WHERE 1=1 $trendWhere $turnoverReasonExclSql GROUP BY TO_CHAR(dteeffex, 'MM') ORDER BY mm";
     
     $resCounts = fetchAllAssoc($conn, $resSql, $binds);
     $monthlyRes = array_fill(1, 12, 0);
@@ -617,7 +631,8 @@ try {
                            WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                            WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                            WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-                           ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+                           WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+                           ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
                        END AS emp_category_full
                 FROM (
                     SELECT
@@ -655,7 +670,7 @@ try {
                             WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                             WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                             WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                            ELSE 'OTHER'
+                            ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
                         END AS emp_category_by_prefix,
                         (SELECT descodt FROM temploy2 e2, tcodnatn cn WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
                         CASE 

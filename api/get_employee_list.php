@@ -32,7 +32,8 @@ FROM (
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย'   OR codnatt = 'Thai')               THEN 'SUB Thai'
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%'    OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-               ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+               WHEN emp_category_by_prefix = 'SUB' THEN 'SUB'
+               ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
            END AS emp_category_full
     FROM (
         SELECT
@@ -94,7 +95,7 @@ FROM (
                 WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                 WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                 WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                ELSE 'OTHER'
+                ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
             END AS emp_category_by_prefix,
             t1.namempt,
             t1.namempe,
@@ -140,39 +141,20 @@ WHERE 1=1";
 
 $binds = [];
 
-// กรองตาม Plant
-if (!empty($plant)) {
-    $sql .= " AND PlantNO = :plant";
-    $binds[':plant'] = $plant;
-}
+// กรองตาม Plant (multi-select)
+$sql .= buildMultiFilter($plant, 'PlantNO', 'plant', $binds);
 
-// กรองตาม Employee Type
-if (!empty($emp_type)) {
-    $sql .= " AND type_name = :emp_type";
-    $binds[':emp_type'] = $emp_type;
-}
+// กรองตาม Employee Type (multi-select)
+$sql .= buildMultiFilter($emp_type, "CASE WHEN type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN type_name ELSE 'OTHER' END", 'emp_type', $binds);
 
-// กรองตาม Employee Category
-if (!empty($emp_category)) {
-    if ($emp_category === 'SUB') {
-        $sql .= " AND emp_category_by_prefix = 'SUB'";
-    } else {
-        $sql .= " AND emp_category_full = :emp_category";
-        $binds[':emp_category'] = $emp_category;
-    }
-}
+// กรองตาม Employee Category (multi-select)
+$sql .= buildMultiFilter($emp_category, 'emp_category_full', 'emp_category', $binds);
 
-// กรองตาม Function (ORG_SHORT)
-if (!empty($function)) {
-    $sql .= " AND func_name = :function";
-    $binds[':function'] = $function;
-}
+// กรองตาม Function (multi-select)
+$sql .= buildMultiFilter($function, 'func_name', 'func', $binds);
 
-// กรองตาม Department (ฝ่าย)
-if (!empty($dept)) {
-    $sql .= " AND UPPER(dept) = UPPER(:dept)";
-    $binds[':dept'] = $dept;
-}
+// กรองตาม Department (multi-select)
+$sql .= buildMultiFilter($dept, 'dept', 'dept', $binds, true);
 
 $sql .= " ORDER BY band DESC";
 

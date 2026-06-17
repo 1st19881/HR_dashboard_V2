@@ -44,4 +44,43 @@ function calculatePercentage($part, $total) {
     if ($total == 0) return 0;
     return round(($part / $total) * 100, 2);
 }
+
+/**
+ * ฟังก์ชันสร้าง IN clause จาก comma-separated string (สำหรับ multi-select filter)
+ * @param string $csvValues - ค่า comma-separated เช่น "SAAB,SAB,SAM"
+ * @param string $column - ชื่อ column ใน SQL เช่น "PlantNO"
+ * @param string $bindPrefix - prefix สำหรับ bind variable เช่น "plant" 
+ * @param array &$binds - array ของ bind variables (pass by reference)
+ * @param bool $upperCase - ถ้า true จะ wrap column ด้วย UPPER()
+ * @return string - SQL fragment เช่น " AND PlantNO IN (:plant_0, :plant_1, :plant_2)"
+ */
+function buildMultiFilter($csvValues, $column, $bindPrefix, &$binds, $upperCase = false) {
+    if (empty($csvValues)) return '';
+    
+    $values = array_filter(array_map('trim', explode(',', $csvValues)));
+    if (empty($values)) return '';
+    
+    // ถ้ามีค่าเดียว ใช้ = แทน IN (เร็วกว่า)
+    if (count($values) === 1) {
+        $bindKey = ":{$bindPrefix}";
+        $binds[$bindKey] = $values[0];
+        if ($upperCase) {
+            return " AND UPPER({$column}) = UPPER({$bindKey})";
+        }
+        return " AND {$column} = {$bindKey}";
+    }
+    
+    // หลายค่า → สร้าง IN clause
+    $placeholders = [];
+    foreach ($values as $i => $val) {
+        $bindKey = ":{$bindPrefix}_{$i}";
+        $binds[$bindKey] = $val;
+        $placeholders[] = $bindKey;
+    }
+    $inList = implode(', ', $placeholders);
+    if ($upperCase) {
+        return " AND UPPER({$column}) IN (" . implode(', ', array_map(function($p) { return "UPPER($p)"; }, $placeholders)) . ")";
+    }
+    return " AND {$column} IN ({$inList})";
+}
 ?>

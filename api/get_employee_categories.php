@@ -23,7 +23,8 @@ FROM (
             WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
             WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
             WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-            ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+            WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+            ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
         END AS emp_category_full,
         PlantNO,
         type_name,
@@ -64,7 +65,7 @@ FROM (
                 WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                 WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                 WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                ELSE 'OTHER'
+                ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
             END AS emp_category_by_prefix,
             (SELECT descodt FROM temploy2 e2, tcodnatn cn
              WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
@@ -86,24 +87,24 @@ FROM (
 WHERE 1=1";
 
 $binds = [];
-if (!empty($plant)) {
-    $sql .= " AND PlantNO = :plant";
-    $binds[':plant'] = $plant;
-}
-if (!empty($emp_type)) {
-    $sql .= " AND type_name = :emp_type";
-    $binds[':emp_type'] = $emp_type;
-}
-if (!empty($function)) {
-    $sql .= " AND func_name = :function";
-    $binds[':function'] = $function;
-}
+$sql .= buildMultiFilter($plant,    'PlantNO',   'plant',    $binds);
+$sql .= buildMultiFilter($emp_type, "CASE WHEN type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN type_name ELSE 'OTHER' END", 'emp_type', $binds);
+$sql .= buildMultiFilter($function, 'func_name', 'func',     $binds);
 
 $sql .= " ORDER BY emp_category_full ASC";
 
 try {
     $results = fetchAllAssoc($conn, $sql, $binds);
-    echo json_encode($results, JSON_UNESCAPED_UNICODE);
+    $cleaned = [];
+    $seen = [];
+    foreach ($results as $r) {
+        $val = isset($r['EMP_CATEGORY_FULL']) ? trim($r['EMP_CATEGORY_FULL']) : '';
+        if ($val !== '' && !isset($seen[$val])) {
+            $seen[$val] = true;
+            $cleaned[] = ['EMP_CATEGORY_FULL' => $val];
+        }
+    }
+    echo json_encode($cleaned, JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
     echo json_encode(['error' => $e->getMessage()]);
 }

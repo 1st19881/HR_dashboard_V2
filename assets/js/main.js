@@ -15,6 +15,15 @@ const PALETTE = {
     gray:   '#94a3b8'
 };
 
+// ============================================================
+// MultiSelect is loaded from shared assets/js/multi-select.js
+// ============================================================
+
+// ============================================================
+// Global MultiSelect instances
+// ============================================================
+let msPlant, msEmpType, msFunction, msEmpCategory, msDepartment;
+
 document.addEventListener('DOMContentLoaded', function () {
     Chart.defaults.font.family = "'Inter', sans-serif";
     Chart.defaults.font.size = 12;
@@ -29,6 +38,52 @@ document.addEventListener('DOMContentLoaded', function () {
     Chart.defaults.plugins.tooltip.shadowBlur = 10;
     Chart.defaults.plugins.tooltip.shadowColor = 'rgba(0,0,0,0.1)';
 
+    // Initialize MultiSelect instances
+    msPlant = new MultiSelect('filterPlant', {
+        onChange: () => {
+            const f = getFilters();
+            loadEmployeeTypeOptions(f.plant);
+            loadFunctionOptions(f.plant, f.emp_type);
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msEmpType = new MultiSelect('filterEmpType', {
+        onChange: () => {
+            const f = getFilters();
+            loadFunctionOptions(f.plant, f.emp_type);
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msFunction = new MultiSelect('filterFunction', {
+        onChange: () => {
+            const f = getFilters();
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msEmpCategory = new MultiSelect('filterEmpCategory', {
+        onChange: () => {
+            const f = getFilters();
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msDepartment = new MultiSelect('filterDepartment', {
+        onChange: () => {
+            refreshData();
+        }
+    });
+
+    // Load initial options
     loadEmployeeTypeOptions();
     loadFunctionOptions();
     loadEmployeeCategoryOptions();
@@ -40,14 +95,12 @@ document.addEventListener('DOMContentLoaded', function () {
         "ajax": {
             "url": "api/get_employee_list.php",
             "data": function(d) {
-                const plantSelect = document.getElementById('filterPlant');
-                d.plant = plantSelect ? plantSelect.options[plantSelect.selectedIndex].text : '';
-                if (d.plant === 'เลือกทั้งหมด') d.plant = '';
-                
-                d.emp_type = $('#filterEmpType').val();
-                d.emp_category = $('#filterEmpCategory').val();
-                d.function = $('#filterFunction').val();
-                d.dept = $('#filterDepartment').val();
+                const f = getFilters();
+                d.plant = f.plant;
+                d.emp_type = f.emp_type;
+                d.emp_category = f.emp_category;
+                d.function = f.function;
+                d.dept = f.dept;
             }
         },
         "columns": [
@@ -102,47 +155,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Handle Filter Changes (The Chain)
-    
-    // 1. Plant Change -> Reload ALL below
-    $('#filterPlant').on('change', function() {
-        const f = getFilters();
-        loadEmployeeTypeOptions(f.plant);
-        loadFunctionOptions(f.plant, f.emp_type);
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    // 2. Employee Type Change -> Reload Function, Category, Dept
-    $('#filterEmpType').on('change', function() {
-        const f = getFilters();
-        loadFunctionOptions(f.plant, f.emp_type);
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    // 3. Function Change -> Reload Category, Dept
-    $('#filterFunction').on('change', function() {
-        const f = getFilters();
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    // 4. Employee Category Change -> Reload Dept
-    $('#filterEmpCategory').on('change', function() {
-        const f = getFilters();
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    // 5. Department Change -> Just refresh data
-    $('#filterDepartment').on('change', function() {
-        refreshData();
-    });
-
     // Handle Year Change
     $('#trendYear').on('change', function() {
         refreshData();
@@ -174,16 +186,14 @@ function createVerticalGradient(ctx, area, colorObj) {
     return gradient;
 }
 
-// Helper: รวบรวมค่า filter ปัจจุบัน
+// Helper: รวบรวมค่า filter ปัจจุบัน (returns comma-separated strings)
 function getFilters() {
-    const plantSelect = document.getElementById('filterPlant');
-    const plantText = plantSelect ? plantSelect.options[plantSelect.selectedIndex].text : '';
     return {
-        plant:        (plantText === 'เลือกทั้งหมด' || plantText === '') ? '' : plantText,
-        emp_type:     $('#filterEmpType').val()     || '',
-        emp_category: $('#filterEmpCategory').val() || '',
-        function:     $('#filterFunction').val()     || '',
-        dept:         $('#filterDepartment').val()   || ''
+        plant:        msPlant       ? msPlant.getValuesString()       : '',
+        emp_type:     msEmpType     ? msEmpType.getValuesString()     : '',
+        emp_category: msEmpCategory ? msEmpCategory.getValuesString() : '',
+        function:     msFunction    ? msFunction.getValuesString()    : '',
+        dept:         msDepartment  ? msDepartment.getValuesString()  : ''
     };
 }
 
@@ -194,15 +204,7 @@ function loadEmployeeTypeOptions(plant = '') {
     fetch(`api/get_employee_types.php?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
-            const select = document.getElementById('filterEmpType');
-            const currentVal = select.value;
-            select.innerHTML = '<option value="">เลือกทั้งหมด</option>';
-            data.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = opt.textContent = item.TYPE_NAME;
-                if (item.TYPE_NAME === currentVal) opt.selected = true;
-                select.appendChild(opt);
-            });
+            if (msEmpType) msEmpType.setOptions(data, 'TYPE_NAME');
         });
 }
 
@@ -214,21 +216,8 @@ function loadFunctionOptions(plant = '', empType = '') {
     fetch(`api/get_functions.php?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
-            const select = document.getElementById('filterFunction');
-            const currentVal = select.value;
-            select.innerHTML = '<option value="">ทั้งหมด</option>';
-            
             if (!Array.isArray(data)) return;
-
-            data.forEach(item => {
-                const name = item.FUNC_NAME || item.func_name;
-                if (name && name !== '') {
-                    const opt = document.createElement('option');
-                    opt.value = opt.textContent = name;
-                    if (name === currentVal) opt.selected = true;
-                    select.appendChild(opt);
-                }
-            });
+            if (msFunction) msFunction.setOptions(data, 'FUNC_NAME');
         });
 }
 
@@ -241,20 +230,8 @@ function loadEmployeeCategoryOptions(plant = '', empType = '', func = '') {
     fetch(`api/get_employee_categories.php?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
-            const select = document.getElementById('filterEmpCategory');
-            const currentVal = select.value;
-            select.innerHTML = '<option value="">เลือกทั้งหมด</option>';
             if (!Array.isArray(data)) return;
-
-            data.forEach(item => {
-                const name = item.EMP_CATEGORY_FULL || item.emp_category_full;
-                if (name && name !== '') {
-                    const opt = document.createElement('option');
-                    opt.value = opt.textContent = name;
-                    if (name === currentVal) opt.selected = true;
-                    select.appendChild(opt);
-                }
-            });
+            if (msEmpCategory) msEmpCategory.setOptions(data, 'EMP_CATEGORY_FULL');
         });
 }
 
@@ -268,21 +245,8 @@ function loadDepartmentOptions(plant = '', empType = '', func = '', empCat = '')
     fetch(`api/get_departments.php?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
-            const select = document.getElementById('filterDepartment');
-            const currentVal = select.value;
-            select.innerHTML = '<option value="">ทั้งหมด</option>';
-
             if (!Array.isArray(data)) return;
-
-            data.forEach(item => {
-                const name = item.DEPT_NAME || item.dept_name;
-                if (name && name !== '') {
-                    const opt = document.createElement('option');
-                    opt.value = opt.textContent = name;
-                    if (name === currentVal) opt.selected = true;
-                    select.appendChild(opt);
-                }
-            });
+            if (msDepartment) msDepartment.setOptions(data, 'DEPT_NAME');
         });
 }
 
@@ -305,13 +269,13 @@ function fetchDashboardData(month = '', filters = {}) {
             // General Trends & KPIs (Available on both pages)
             if (document.getElementById('trendChart')) renderTrendChart(data.trendData);
             
-            // KPI Values
             const kpiIds = {
                 'kpi-perm': data.kpi.perm,
                 'kpi-pwc': data.kpi.pwc,
                 'kpi-sub-thai': data.kpi.sub_thai,
                 'kpi-sub-mm': data.kpi.sub_myanmar,
                 'kpi-sub-cam': data.kpi.sub_cambodia,
+                'kpi-sub': data.kpi.sub,
                 'kpi-other': data.kpi.other
             };
             
@@ -441,6 +405,7 @@ function renderTypeChart(dataSeries, totalHeadcount) {
     const colorMap = {
         'PERM':         '#2563eb',
         'PWC':          '#60a5fa',
+        'SUB':          '#a855f7',
         'SUB Thai':     '#ef4444',
         'SUB Myanmar':  '#f59e0b',
         'SUB Cambodia': '#10b981',
@@ -504,7 +469,9 @@ function renderTypeChart(dataSeries, totalHeadcount) {
                     }
                 },
                 datalabels: {
-                    display: true,
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] >= 1.0;
+                    },
                     anchor: 'end',
                     align: 'end',
                     offset: window.innerWidth < 768 ? 2 : (window.innerWidth < 1500 ? 5 : 12),

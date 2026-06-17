@@ -24,7 +24,8 @@ FROM (
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-               ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+               WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+               ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
            END AS emp_category_full
     FROM (
         SELECT
@@ -62,7 +63,7 @@ FROM (
                 WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                 WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                 WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                ELSE 'OTHER'
+                ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
             END AS emp_category_by_prefix,
             (SELECT descodt FROM temploy2 e2, tcodnatn cn
              WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
@@ -85,22 +86,10 @@ FROM (
 WHERE DEPT IS NOT NULL";
 
 $binds = [];
-if (!empty($plant)) {
-    $sql .= " AND PlantNO = :plant";
-    $binds[':plant'] = $plant;
-}
-if (!empty($emp_type)) {
-    $sql .= " AND type_name = :emp_type";
-    $binds[':emp_type'] = $emp_type;
-}
-if (!empty($function)) {
-    $sql .= " AND func_name = :function";
-    $binds[':function'] = $function;
-}
-if (!empty($emp_category)) {
-    $sql .= " AND emp_category_full = :emp_category";
-    $binds[':emp_category'] = $emp_category;
-}
+$sql .= buildMultiFilter($plant,        'PlantNO',           'plant',        $binds);
+$sql .= buildMultiFilter($emp_type,     "CASE WHEN type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN type_name ELSE 'OTHER' END",         'emp_type',     $binds);
+$sql .= buildMultiFilter($function,     'func_name',         'func',         $binds);
+$sql .= buildMultiFilter($emp_category, 'emp_category_full', 'emp_category', $binds);
 
 $sql .= " ORDER BY UPPER(TRIM(DEPT)) ASC";
 

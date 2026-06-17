@@ -61,7 +61,7 @@ try {
                     WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                     WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                     WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                    ELSE 'OTHER'
+                    ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
                 END AS emp_category_by_prefix,
                 (SELECT descodt FROM temploy2 e2, tcodnatn cn WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,
                 CASE 
@@ -86,7 +86,8 @@ try {
                     WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                     WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                     WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-                    ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+                    WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+                    ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
                END AS emp_category_full
         FROM ( $innerCalculatedSql ) t1
     ";
@@ -94,11 +95,11 @@ try {
     // --- 2. Filter Construction ---
     $where = " WHERE 1=1";
     $binds = [];
-    if (!empty($plant))        { $where .= " AND PlantGroup = :plant";              $binds[':plant'] = $plant; }
-    if (!empty($emp_type))     { $where .= " AND type_name = :emp_type";          $binds[':emp_type'] = $emp_type; }
-    if (!empty($emp_category)) { $where .= " AND emp_category_full = :emp_category"; $binds[':emp_category'] = $emp_category; }
-    if (!empty($function))     { $where .= " AND func_name = :function";          $binds[':function'] = $function; }
-    if (!empty($dept))         { $where .= " AND UPPER(dept) = UPPER(:dept)";     $binds[':dept'] = $dept; }
+    $where .= buildMultiFilter($plant,        'PlantGroup',        'plant',        $binds);
+    $where .= buildMultiFilter($emp_type,     "CASE WHEN type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN type_name ELSE 'OTHER' END",         'emp_type',     $binds);
+    $where .= buildMultiFilter($emp_category, 'emp_category_full', 'emp_category', $binds);
+    $where .= buildMultiFilter($function,     'func_name',         'func',         $binds);
+    $where .= buildMultiFilter($dept,         'dept',              'dept',         $binds, true);
 
     $headcountExcl = " AND namempt NOT LIKE '%จุฬางกูร%'";
     $headcountWhere = $where . $headcountExcl;
@@ -125,7 +126,8 @@ try {
         SUM(CASE WHEN emp_category_full = 'SUB Thai'     THEN 1 ELSE 0 END) AS sub_thai,
         SUM(CASE WHEN emp_category_full = 'SUB Myanmar'  THEN 1 ELSE 0 END) AS sub_myanmar,
         SUM(CASE WHEN emp_category_full = 'SUB Cambodia' THEN 1 ELSE 0 END) AS sub_cambodia,
-        SUM(CASE WHEN emp_category_full = 'OTHER' THEN 1 ELSE 0 END) AS other,
+        SUM(CASE WHEN emp_category_full = 'SUB'          THEN 1 ELSE 0 END) AS sub,
+        SUM(CASE WHEN emp_category_full NOT IN ('PERM', 'PWC', 'SUB Thai', 'SUB Myanmar', 'SUB Cambodia', 'SUB') THEN 1 ELSE 0 END) AS other,
         COUNT(*) AS headcount_all,
         SUM(CASE WHEN codsex != 'F' THEN 1 ELSE 0 END) AS male_count,
         SUM(CASE WHEN codsex  = 'F' THEN 1 ELSE 0 END) AS female_count
@@ -144,6 +146,7 @@ try {
         'sub_thai' => (int)($row['SUB_THAI'] ?? 0),
         'sub_myanmar' => (int)($row['SUB_MYANMAR'] ?? 0),
         'sub_cambodia' => (int)($row['SUB_CAMBODIA'] ?? 0),
+        'sub' => (int)($row['SUB'] ?? 0),
         'other' => (int)($row['OTHER'] ?? 0),
         'headcount_all' => $headTotal,
         'male_pct' => $headTotal > 0 ? round((int)($row['MALE_COUNT'] ?? 0) / $headTotal * 100) : 0,
@@ -237,10 +240,12 @@ try {
         if ($p['PGROUP'] !== 'OTHER' || $p['QTY'] > 0) $plantData[] = ['name' => $p['PGROUP'], 'y' => (int)$p['QTY']];
     }
 
-    // Donut: Type % (แยก SUB ย่อย)
     $typeData = [];
     if ($headTotal > 0) {
-        $cats = ['PERM' => 'PERM', 'PWC' => 'PWC', 'SUB Thai' => 'SUB_THAI', 'SUB Myanmar' => 'SUB_MYANMAR', 'SUB Cambodia' => 'SUB_CAMBODIA', 'OTHER' => 'OTHER'];
+        $cats = [
+            'PERM' => 'PERM', 'PWC' => 'PWC', 'SUB' => 'SUB', 'SUB Thai' => 'SUB_THAI', 
+            'SUB Myanmar' => 'SUB_MYANMAR', 'SUB Cambodia' => 'SUB_CAMBODIA', 'OTHER' => 'OTHER'
+        ];
         foreach ($cats as $lbl => $k) {
             $v = (int)($row[$k] ?? 0);
             if ($v > 0) {

@@ -182,6 +182,7 @@ body.sidebar-collapsed .sidebar-user .topbar-btn {
   background: var(--bg-card); border: 1px solid var(--border-color);
   border-radius: var(--radius); padding: 14px 18px; margin-bottom: 16px;
   box-shadow: var(--shadow-card); backdrop-filter: blur(8px);
+  position: relative; z-index: 10;
 }
 
 #monthFilter { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
@@ -645,6 +646,236 @@ body.sidebar-collapsed .sidebar-user .topbar-btn {
   .type-segment-bar { height: 28px; border-radius: 14px; }
   .type-segment .seg-label .seg-name { font-size: 0.6rem; }
   .type-segment .seg-label .seg-pct { display: none; }
+}
+
+/* ── Multi-Select Dropdown ───────────────────────────────── */
+.multi-select {
+  position: relative;
+}
+.multi-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px 4px 10px;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  transition: var(--transition);
+  user-select: none;
+}
+.multi-select-trigger:hover {
+  border-color: var(--accent);
+}
+.multi-select.open .multi-select-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+.multi-select-trigger .ms-placeholder {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.multi-select-trigger .ms-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  max-height: 52px;
+}
+.multi-select-trigger .ms-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.6;
+}
+.multi-select-trigger .ms-tag .ms-tag-remove {
+  cursor: pointer;
+  font-size: 0.65rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  padding: 0 1px;
+}
+.multi-select-trigger .ms-tag .ms-tag-remove:hover {
+  opacity: 1;
+}
+.multi-select-trigger .ms-more {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.multi-select-trigger .ms-arrow {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  transition: transform 0.3s;
+}
+.multi-select.open .ms-arrow {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Panel */
+.multi-select-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.1), 0 4px 8px rgba(0,0,0,0.04);
+  z-index: 1050;
+  max-height: 260px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: msDropIn 0.2s ease;
+}
+.multi-select:not(.open) .multi-select-dropdown {
+  display: none !important;
+}
+.multi-select.open .multi-select-dropdown {
+  display: flex !important;
+}
+@keyframes msDropIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ms-search-wrap {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+.ms-search-wrap input {
+  width: 100%;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  background: #f8fafc;
+  color: var(--text-primary);
+  transition: var(--transition);
+}
+.ms-search-wrap input:focus {
+  border-color: var(--accent);
+  background: #fff;
+}
+.ms-search-wrap input::placeholder {
+  color: var(--text-muted);
+}
+
+.ms-options {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.ms-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  transition: background 0.15s;
+  user-select: none;
+}
+.ms-option:hover {
+  background: #f8fafc;
+}
+.ms-option.selected {
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--accent-glow);
+}
+.ms-option .ms-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #cbd5e1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.ms-option.selected .ms-checkbox {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ms-option.selected .ms-checkbox::after {
+  content: '✓';
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.ms-option.hidden {
+  display: none;
+}
+.ms-option-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Footer actions */
+.ms-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-color);
+  background: #f8fafc;
+  border-radius: 0 0 10px 10px;
+}
+.ms-footer-btn {
+  border: none;
+  background: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: var(--transition);
+}
+.ms-footer-btn.ms-select-all {
+  color: var(--accent);
+}
+.ms-footer-btn.ms-select-all:hover {
+  background: var(--accent-glow);
+}
+.ms-footer-btn.ms-clear-all {
+  color: var(--red);
+}
+.ms-footer-btn.ms-clear-all:hover {
+  background: rgba(239,68,68,0.08);
+}
+.ms-count {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 /* ── Print ────────────────────────────────────────────────── */

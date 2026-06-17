@@ -4,6 +4,7 @@ Chart.register(ChartDataLabels);
 
 let chartInstances = {};
 let detailsTable;
+let msPlant, msEmpType, msFunction, msEmpCategory, msDepartment;
 
 // Palette สีแนว Premium Light
 const PALETTE = {
@@ -29,47 +30,57 @@ document.addEventListener('DOMContentLoaded', function () {
     Chart.defaults.font.size = 12;
     Chart.defaults.color = '#64748b';
     
+    // Initialize MultiSelect instances
+    msPlant = new MultiSelect('filterPlant', {
+        onChange: () => {
+            const f = getFilters();
+            loadEmployeeTypeOptions(f.plant);
+            loadFunctionOptions(f.plant, f.emp_type);
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msEmpType = new MultiSelect('filterEmpType', {
+        onChange: () => {
+            const f = getFilters();
+            loadFunctionOptions(f.plant, f.emp_type);
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msFunction = new MultiSelect('filterFunction', {
+        onChange: () => {
+            const f = getFilters();
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msEmpCategory = new MultiSelect('filterEmpCategory', {
+        onChange: () => {
+            const f = getFilters();
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msDepartment = new MultiSelect('filterDepartment', {
+        onChange: () => {
+            refreshData();
+        }
+    });
+
     // Initial loads
     loadEmployeeTypeOptions();
     loadFunctionOptions();
     loadEmployeeCategoryOptions();
     loadDepartmentOptions();
     fetchTurnoverData();
-
-    // --- Dropdown Change Chain ---
-    $('#filterPlant').on('change', function() {
-        const f = getFilters();
-        loadEmployeeTypeOptions(f.plant);
-        loadFunctionOptions(f.plant, f.emp_type);
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    $('#filterEmpType').on('change', function() {
-        const f = getFilters();
-        loadFunctionOptions(f.plant, f.emp_type);
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    $('#filterFunction').on('change', function() {
-        const f = getFilters();
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    $('#filterEmpCategory').on('change', function() {
-        const f = getFilters();
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    $('#filterDepartment').on('change', function() {
-        refreshData();
-    });
 
     $('#filterYear').on('change', function() {
         refreshData();
@@ -170,15 +181,13 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function getFilters() {
-    const plantSelect = document.getElementById('filterPlant');
-    const plantText = plantSelect ? plantSelect.options[plantSelect.selectedIndex].text : '';
     const monthFilter = document.querySelector('.month-btn.active');
     return {
-        plant:        (plantText === 'เลือกทั้งหมด' || plantText === '') ? '' : plantText,
-        emp_type:     $('#filterEmpType').val()     || '',
-        emp_category: $('#filterEmpCategory').val() || '',
-        function:     $('#filterFunction').val()     || '',
-        dept:         $('#filterDepartment').val()   || '',
+        plant:        msPlant       ? msPlant.getValuesString()       : '',
+        emp_type:     msEmpType     ? msEmpType.getValuesString()     : '',
+        emp_category: msEmpCategory ? msEmpCategory.getValuesString() : '',
+        function:     msFunction    ? msFunction.getValuesString()    : '',
+        dept:         msDepartment  ? msDepartment.getValuesString()  : '',
         year:         $('#filterYear').val()         || new Date().getFullYear(),
         month:        monthFilter ? monthFilter.getAttribute('data-month') : ''
     };
@@ -321,7 +330,7 @@ function renderTurnoverChart(turnoverData, categoryTurnover) {
                 y: {
                     beginAtZero: true,
                     grid: { borderDash: [4, 4], color: '#e2e8f0' },
-                    ticks: { stepSize: 1, font: { size: 12, weight: '600' }, color: '#64748b' },
+                    ticks: { precision: 0, font: { size: 12, weight: '600' }, color: '#64748b' },
                     title: { display: true, text: 'จำนวนลาออก (คน)', color: '#64748b', font: { size: 12, weight: '700' } }
                 }
             }
@@ -392,7 +401,7 @@ function renderReasonChart(reasonData) {
                 y: { 
                     beginAtZero: true,
                     grid: { borderDash: [5, 5], color: '#e2e8f0' },
-                    ticks: { stepSize: 1, color: '#64748b', font: { size: 12 } }
+                    ticks: { precision: 0, color: '#64748b', font: { size: 12 } }
                 }
             }
         },
@@ -523,7 +532,7 @@ function renderCategoryChart(canvasId, label, data, colorObj) {
                     position: 'right',
                     beginAtZero: true,
                     grid: { display: false },
-                    ticks: { stepSize: 1, font: { size: 11, weight: '600' }, color: '#475569' },
+                    ticks: { precision: 0, font: { size: 11, weight: '600' }, color: '#475569' },
                     title: { display: true, text: 'จำนวน (คน)', color: '#475569', font: { size: 11, weight: '700' } }
                 }
             }
@@ -538,7 +547,9 @@ function loadEmployeeTypeOptions(plant = '') {
     const params = new URLSearchParams();
     if (plant) params.set('plant', plant);
     fetch(`api/get_employee_types.php?${params.toString()}`)
-        .then(r => r.json()).then(data => populateSelect('filterEmpType', data, 'TYPE_NAME'));
+        .then(r => r.json()).then(data => {
+            if (msEmpType) msEmpType.setOptions(data, 'TYPE_NAME');
+        });
 }
 
 function loadFunctionOptions(plant = '', empType = '') {
@@ -546,7 +557,9 @@ function loadFunctionOptions(plant = '', empType = '') {
     if (plant)   params.set('plant', plant);
     if (empType) params.set('emp_type', empType);
     fetch(`api/get_functions.php?${params.toString()}`)
-        .then(r => r.json()).then(data => populateSelect('filterFunction', data, 'FUNC_NAME'));
+        .then(r => r.json()).then(data => {
+            if (msFunction) msFunction.setOptions(data, 'FUNC_NAME');
+        });
 }
 
 function loadEmployeeCategoryOptions(plant = '', empType = '', func = '') {
@@ -555,7 +568,9 @@ function loadEmployeeCategoryOptions(plant = '', empType = '', func = '') {
     if (empType) params.set('emp_type', empType);
     if (func)    params.set('function', func);
     fetch(`api/get_employee_categories.php?${params.toString()}`)
-        .then(r => r.json()).then(data => populateSelect('filterEmpCategory', data, 'EMP_CATEGORY_FULL'));
+        .then(r => r.json()).then(data => {
+            if (msEmpCategory) msEmpCategory.setOptions(data, 'EMP_CATEGORY_FULL');
+        });
 }
 
 function loadDepartmentOptions(plant = '', empType = '', func = '', empCat = '') {
@@ -565,25 +580,11 @@ function loadDepartmentOptions(plant = '', empType = '', func = '', empCat = '')
     if (func)    params.set('function', func);
     if (empCat)  params.set('emp_category', empCat);
     fetch(`api/get_departments.php?${params.toString()}`)
-        .then(r => r.json()).then(data => populateSelect('filterDepartment', data, 'DEPT_NAME'));
+        .then(r => r.json()).then(data => {
+            if (msDepartment) msDepartment.setOptions(data, 'DEPT_NAME');
+        });
 }
 
 function fetchTurnoverDetails() {
     if (detailsTable) detailsTable.ajax.reload();
-}
-
-function populateSelect(id, data, key) {
-    const select = document.getElementById(id);
-    if (!select || !Array.isArray(data)) return;
-    const currentVal = select.value;
-    select.innerHTML = (id.includes('Plant') || id.includes('EmpCategory') || id.includes('EmpType')) ? '<option value="">เลือกทั้งหมด</option>' : '<option value="">ทั้งหมด</option>';
-    data.forEach(item => {
-        const val = item[key] || item[key.toLowerCase()];
-        if (val) {
-            const opt = document.createElement('option');
-            opt.value = opt.textContent = val;
-            if (val === currentVal) opt.selected = true;
-            select.appendChild(opt);
-        }
-    });
 }

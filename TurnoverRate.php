@@ -44,41 +44,102 @@ include 'includes/header.php';
                 <div class="row g-2">
                     <div class="col-6 col-sm-4 col-xl-4 col-xxl">
                         <label class="form-label small text-muted mb-1 fw-bold">Plant</label>
-                        <select class="form-select form-select-sm shadow-none" id="filterPlant">
-                            <option value="">เลือกทั้งหมด</option>
-                            <option value="SAAB">SAAB</option>
-                            <option value="SAB">SAB</option>
-                            <option value="SAM">SAM</option>
-                            <option value="SATC">SATC</option>
-                            <option value="SDC">SDC</option>
-                            <option value="SLAB">SLAB</option>
-                            <option value="SRAB">SRAB</option>
-                            <option value="SRDC">SRDC</option>
-                        </select>
+                        <div class="multi-select" id="filterPlant" data-placeholder="เลือกทั้งหมด">
+                            <div class="multi-select-trigger">
+                                <span class="ms-placeholder">เลือกทั้งหมด</span>
+                                <i class="fa-solid fa-chevron-down ms-arrow"></i>
+                            </div>
+                            <div class="multi-select-dropdown">
+                                <div class="ms-search-wrap"><input type="text" placeholder="ค้นหา..."></div>
+                                <div class="ms-options">
+                                    <div class="ms-option" data-value="SAAB"><div class="ms-checkbox"></div><span class="ms-option-text">SAAB</span></div>
+                                    <div class="ms-option" data-value="SAB"><div class="ms-checkbox"></div><span class="ms-option-text">SAB</span></div>
+                                    <div class="ms-option" data-value="SAM"><div class="ms-checkbox"></div><span class="ms-option-text">SAM</span></div>
+                                    <div class="ms-option" data-value="SATC"><div class="ms-checkbox"></div><span class="ms-option-text">SATC</span></div>
+                                    <div class="ms-option" data-value="SDC"><div class="ms-checkbox"></div><span class="ms-option-text">SDC</span></div>
+                                    <div class="ms-option" data-value="SLAB"><div class="ms-checkbox"></div><span class="ms-option-text">SLAB</span></div>
+                                    <div class="ms-option" data-value="SRAB"><div class="ms-checkbox"></div><span class="ms-option-text">SRAB</span></div>
+                                    <div class="ms-option" data-value="SRDC"><div class="ms-checkbox"></div><span class="ms-option-text">SRDC</span></div>
+                                </div>
+                                <div class="ms-footer">
+                                    <button class="ms-footer-btn ms-select-all" type="button">เลือกทั้งหมด</button>
+                                    <span class="ms-count"></span>
+                                    <button class="ms-footer-btn ms-clear-all" type="button">ล้าง</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-6 col-sm-4 col-xl-4 col-xxl">
                         <label class="form-label small text-muted mb-1 fw-bold">Employee Type</label>
-                        <select class="form-select form-select-sm shadow-none" id="filterEmpType">
-                            <option value="">เลือกทั้งหมด</option>
-                        </select>
+                        <div class="multi-select" id="filterEmpType" data-placeholder="เลือกทั้งหมด">
+                            <div class="multi-select-trigger">
+                                <span class="ms-placeholder">เลือกทั้งหมด</span>
+                                <i class="fa-solid fa-chevron-down ms-arrow"></i>
+                            </div>
+                            <div class="multi-select-dropdown">
+                                <div class="ms-search-wrap"><input type="text" placeholder="ค้นหา..."></div>
+                                <div class="ms-options"></div>
+                                <div class="ms-footer">
+                                    <button class="ms-footer-btn ms-select-all" type="button">เลือกทั้งหมด</button>
+                                    <span class="ms-count"></span>
+                                    <button class="ms-footer-btn ms-clear-all" type="button">ล้าง</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-6 col-sm-4 col-xl-4 col-xxl">
                         <label class="form-label small text-muted mb-1 fw-bold">Function</label>
-                        <select class="form-select form-select-sm shadow-none" id="filterFunction">
-                            <option value="">ทั้งหมด</option>
-                        </select>
+                        <div class="multi-select" id="filterFunction" data-placeholder="ทั้งหมด">
+                            <div class="multi-select-trigger">
+                                <span class="ms-placeholder">ทั้งหมด</span>
+                                <i class="fa-solid fa-chevron-down ms-arrow"></i>
+                            </div>
+                            <div class="multi-select-dropdown">
+                                <div class="ms-search-wrap"><input type="text" placeholder="ค้นหา..."></div>
+                                <div class="ms-options"></div>
+                                <div class="ms-footer">
+                                    <button class="ms-footer-btn ms-select-all" type="button">เลือกทั้งหมด</button>
+                                    <span class="ms-count"></span>
+                                    <button class="ms-footer-btn ms-clear-all" type="button">ล้าง</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-6 col-sm-4 col-xl-4 col-xxl">
                         <label class="form-label small text-muted mb-1 fw-bold">Employee Category</label>
-                        <select class="form-select form-select-sm shadow-none" id="filterEmpCategory">
-                            <option value="">เลือกทั้งหมด</option>
-                        </select>
+                        <div class="multi-select" id="filterEmpCategory" data-placeholder="เลือกทั้งหมด">
+                            <div class="multi-select-trigger">
+                                <span class="ms-placeholder">เลือกทั้งหมด</span>
+                                <i class="fa-solid fa-chevron-down ms-arrow"></i>
+                            </div>
+                            <div class="multi-select-dropdown">
+                                <div class="ms-search-wrap"><input type="text" placeholder="ค้นหา..."></div>
+                                <div class="ms-options"></div>
+                                <div class="ms-footer">
+                                    <button class="ms-footer-btn ms-select-all" type="button">เลือกทั้งหมด</button>
+                                    <span class="ms-count"></span>
+                                    <button class="ms-footer-btn ms-clear-all" type="button">ล้าง</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-6 col-sm-4 col-xl-4 col-xxl">
                         <label class="form-label small text-muted mb-1 fw-bold">Department</label>
-                        <select class="form-select form-select-sm shadow-none" id="filterDepartment">
-                            <option value="">ทั้งหมด</option>
-                        </select>
+                        <div class="multi-select" id="filterDepartment" data-placeholder="ทั้งหมด">
+                            <div class="multi-select-trigger">
+                                <span class="ms-placeholder">ทั้งหมด</span>
+                                <i class="fa-solid fa-chevron-down ms-arrow"></i>
+                            </div>
+                            <div class="multi-select-dropdown">
+                                <div class="ms-search-wrap"><input type="text" placeholder="ค้นหา..."></div>
+                                <div class="ms-options"></div>
+                                <div class="ms-footer">
+                                    <button class="ms-footer-btn ms-select-all" type="button">เลือกทั้งหมด</button>
+                                    <span class="ms-count"></span>
+                                    <button class="ms-footer-btn ms-clear-all" type="button">ล้าง</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

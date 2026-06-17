@@ -18,6 +18,9 @@
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- MultiSelect Component (Shared) -->
+    <script src="assets/js/multi-select.js?v=<?php echo time(); ?>"></script>
+
     <!-- Custom JS -->
     <script src="<?php echo isset($pageScript) ? $pageScript : 'assets/js/main.js'; ?>?v=<?php echo time(); ?>"></script>
 </div><!-- /.main-content -->

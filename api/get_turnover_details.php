@@ -24,15 +24,25 @@ $dept         = $_GET['dept']         ?? '';
 // เงื่อนไขยกเว้นสำหรับ Trend/Turnover
 $trendExcl = " AND t1.namempt NOT LIKE '%จุฬางกูร%'";
 
+// Reason Codes ที่ไม่นำมาคำนวณ Turnover Rate (CODCODEC จาก TCODEXEM)
+$turnoverExclReasons = ['11', '12', '15', '16', '17'];
+$reasonPlaceholders = implode(',', array_map(function($v) { return "'" . $v . "'"; }, $turnoverExclReasons));
+$turnoverReasonExclSql = " AND NOT EXISTS (
+    SELECT 1 FROM HRMS.TTEXEMPT tex
+    WHERE tex.CODEMPID = t1.codempid
+      AND tex.CODEXEMP IN ($reasonPlaceholders)
+      AND tex.rowid = (SELECT MAX(rowid) FROM HRMS.TTEXEMPT WHERE CODEMPID = t1.codempid)
+)";
+
 // Build Where Clause
 $where = " WHERE 1=1";
 $binds = [];
 
-if (!empty($plant))        { $where .= " AND t1.PlantNO = :plant";              $binds[':plant'] = $plant; }
-if (!empty($emp_type))     { $where .= " AND t1.type_name = :emp_type";          $binds[':emp_type'] = $emp_type; }
-if (!empty($emp_category)) { $where .= " AND t1.emp_category_full = :emp_category";  $binds[':emp_category'] = $emp_category; }
-if (!empty($function))     { $where .= " AND t1.func_name = :function";          $binds[':function'] = $function; }
-if (!empty($dept))         { $where .= " AND UPPER(t1.dept) = UPPER(:dept)";       $binds[':dept'] = $dept; }
+$where .= buildMultiFilter($plant,        't1.PlantNO',           'plant',        $binds);
+$where .= buildMultiFilter($emp_type,     "CASE WHEN t1.type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN t1.type_name ELSE 'OTHER' END",         'emp_type',     $binds);
+$where .= buildMultiFilter($emp_category, 't1.emp_category_full', 'emp_category', $binds);
+$where .= buildMultiFilter($function,     't1.func_name',         'func',         $binds);
+$where .= buildMultiFilter($dept,         't1.dept',              'dept',         $binds, true);
 
 // แปลงชื่อเดือนเป็นตัวเลข (ถ้ามี)
 if (!empty($month_name) && $month_name !== 'All') {
@@ -55,7 +65,7 @@ if (!empty($month_name) && $month_name !== 'All') {
     $binds[':year'] = $year;
 }
 
-$finalWhere = $where . " AND t1.staemp = 9 " . $trendExcl;
+$finalWhere = $where . " AND t1.staemp = 9 " . $trendExcl . $turnoverReasonExclSql;
 
 $sql = "
 SELECT * FROM (
@@ -81,7 +91,8 @@ SELECT * FROM (
                    WHEN emp_category_by_prefix = 'SUB' AND (codnatt = 'ไทย' OR codnatt = 'Thai')              THEN 'SUB Thai'
                    WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%พม่า%' OR codnatt LIKE '%Myanmar%') THEN 'SUB Myanmar'
                    WHEN emp_category_by_prefix = 'SUB' AND (codnatt LIKE '%กัมพูชา%' OR codnatt LIKE '%Cambodia%') THEN 'SUB Cambodia'
-                   ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE 'OTHER' END
+                   WHEN emp_category_by_prefix = 'SUB'                                                        THEN 'SUB'
+                   ELSE CASE WHEN emp_category_by_prefix IN ('PERM', 'PWC') THEN emp_category_by_prefix ELSE emp_category_by_prefix END
                END AS emp_category_full
         FROM (
             SELECT
@@ -119,7 +130,7 @@ SELECT * FROM (
                     WHEN 'T1' THEN 'PERM' WHEN 'T7' THEN 'PWC'
                     WHEN 'TH' THEN 'SUB'  WHEN 'TR' THEN 'SUB'  WHEN 'TS' THEN 'SUB'
                     WHEN 'Y5' THEN 'SUB'  WHEN 'Y6' THEN 'SUB'
-                    ELSE 'OTHER'
+                    ELSE NVL((SELECT ex.ASSIGNED_TYPE FROM HRMS_TYPE_EXCEPTIONS ex WHERE ex.EMP_ID = t1.codempid AND ROWNUM = 1), 'OTHER')
                 END AS emp_category_by_prefix,
                 (SELECT descodt FROM temploy2 e2, tcodnatn cn
                  WHERE e2.codnatnl = cn.codcodec AND e2.codempid = t1.codempid) AS codnatt,

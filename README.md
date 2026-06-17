@@ -262,7 +262,7 @@ AND (staemp < 9 OR (staemp = 9 AND dteeffex > สิ้นเดือน))
 - **สูตร**: `(จำนวนลาออกเดือนนั้น / Headcount สิ้นเดือนนั้น) * 100`
 - **ข้อมูลลาออก**: นับ `staemp = 9` ที่ `TO_CHAR(dteeffex, 'YYYY') = ปีที่เลือก` GROUP BY เดือน
 - **ข้อมูล Headcount**: ใช้ `trendData[i]` (ยอดจาก Trend Chart)
-- **Exclusion**: กรองเฉพาะชื่อ "จุฬางกูร" (ไม่กรอง 25 บริษัท)
+- **Exclusion**: กรองเฉพาะชื่อ "จุฬางกูร" (ไม่กรอง 25 บริษัท) และไม่นับพนักงานที่มีรหัสเหตุผลการลาออก (CODEXEMP จากตาราง `HRMS.TTEXEMPT`) เป็น '11', '12', '15', '16', '17' มาคำนวณการลาออก
 - **Drill-down**: คลิกแท่งกราฟ → เปิด Modal แสดงรายชื่อคนลาออกเดือนนั้น (`get_turnover_details.php`)
 - **Chart Style**: Vertical Bar, Blue gradient (`#2563eb` → `#60a5fa`), borderRadius 5
 
@@ -321,6 +321,7 @@ AND (staemp < 9 OR (staemp = 9 AND dteeffex > สิ้นเดือน))
   - Gradient `rgba(37, 99, 235, 0.35)` → `rgba(96, 165, 250, 0.55)`
   - Data Label: ตัวเลขสีน้ำเงินเข้ม `#1e40af`
 - **สูตร Rate**: `(จำนวนลาออกเดือนนั้น / Headcount สิ้นเดือนนั้น) * 100`
+- **Turnover Exclusion**: ไม่นับพนักงานที่มีรหัสเหตุผลการลาออก (CODEXEMP) เป็น '11', '12', '15', '16', '17' ในตาราง `HRMS.TTEXEMPT` (ดึงประวัติล่าสุดด้วย `MAX(rowid)`)
 - **Interaction**: `mode: 'index'` — hover เดือนไหนแสดงข้อมูลทั้ง 2 dataset
 - **Tooltip**: Dark theme (`rgba(15, 23, 42, 0.92)`)
 
@@ -449,6 +450,7 @@ AND (staemp < 9 OR (staemp = 9 AND dteeffex > สิ้นเดือน))
 | Filter 5 ชั้น (Cascading/Chained)      | ✅ Plant → EmpType → Function → Category → Dept       |
 | Trend Year Filter Dropdown             | ✅ ปีปัจจุบัน + 2 ปีย้อนหลัง                          |
 | Trend Exclusion Logic                  | ✅ กรองชื่อ + 25 บริษัท (เฉพาะ Trend)                 |
+| Turnover Exclusion Logic               | ✅ ไม่นับรหัสเหตุผลการลาออก (CODEXEMP) '11', '12', '15', '16', '17' จาก `HRMS.TTEXEMPT` |
 | Responsive (Tablet + Mobile)           | ✅ Sidebar overlay, Collapse toggle, Chart responsive |
 | จัดการสิทธิ์ผู้ใช้                     | ✅ หน้า manage_auth.php + manage_auth.js              |
 | Premium Light Theme                    | ✅ Sidebar + Top Bar + Glassmorphism + Animations     |
@@ -456,4 +458,4 @@ AND (staemp < 9 OR (staemp = 9 AND dteeffex > สิ้นเดือน))
 
 ---
 
-_บันทึกล่าสุด: 15 พฤษภาคม 2026_
+_บันทึกล่าสุด: 8 มิถุนายน 2026_

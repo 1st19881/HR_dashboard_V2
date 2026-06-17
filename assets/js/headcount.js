@@ -36,6 +36,11 @@ function getPlantColor(name) {
     return PLANT_COLORS[name] || '#cbd5e1';
 }
 
+// ============================================================
+// Global MultiSelect instances
+// ============================================================
+let msPlant, msEmpType, msFunction, msEmpCategory, msDepartment;
+
 document.addEventListener('DOMContentLoaded', function () {
     // Chart.js defaults (เหมือน main.js)
     Chart.defaults.font.family = "'Inter', sans-serif";
@@ -48,6 +53,51 @@ document.addEventListener('DOMContentLoaded', function () {
     Chart.defaults.plugins.tooltip.cornerRadius = 10;
     Chart.defaults.plugins.tooltip.titleColor = '#1e293b';
     Chart.defaults.plugins.tooltip.bodyColor = '#475569';
+
+    // Initialize MultiSelect instances with cascade onChange chain
+    msPlant = new MultiSelect('filterPlant', {
+        onChange: () => {
+            const f = getFilters();
+            loadEmployeeTypeOptions(f.plant);
+            loadFunctionOptions(f.plant, f.emp_type);
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msEmpType = new MultiSelect('filterEmpType', {
+        onChange: () => {
+            const f = getFilters();
+            loadFunctionOptions(f.plant, f.emp_type);
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msFunction = new MultiSelect('filterFunction', {
+        onChange: () => {
+            const f = getFilters();
+            loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msEmpCategory = new MultiSelect('filterEmpCategory', {
+        onChange: () => {
+            const f = getFilters();
+            loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
+            refreshData();
+        }
+    });
+
+    msDepartment = new MultiSelect('filterDepartment', {
+        onChange: () => {
+            refreshData();
+        }
+    });
 
     // Initial loads — ตัวเลือกแรกเริ่ม
     loadEmployeeTypeOptions();
@@ -107,48 +157,7 @@ document.addEventListener('DOMContentLoaded', function () {
         "dom": '<"d-flex justify-content-between align-items-center mb-2"f>t<"d-flex justify-content-between align-items-center mt-2"ip>'
     });
 
-    // --- Dropdown Change Chain (เหมือน main.js) ---
-
-    // 1. Plant Change -> Reload ALL below
-    $('#filterPlant').on('change', function() {
-        const f = getFilters();
-        loadEmployeeTypeOptions(f.plant);
-        loadFunctionOptions(f.plant, f.emp_type);
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    // 2. Employee Type Change -> Reload Function, Category, Dept
-    $('#filterEmpType').on('change', function() {
-        const f = getFilters();
-        loadFunctionOptions(f.plant, f.emp_type);
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    // 3. Function Change -> Reload Category, Dept
-    $('#filterFunction').on('change', function() {
-        const f = getFilters();
-        loadEmployeeCategoryOptions(f.plant, f.emp_type, f.function);
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    // 4. Employee Category Change -> Reload Dept
-    $('#filterEmpCategory').on('change', function() {
-        const f = getFilters();
-        loadDepartmentOptions(f.plant, f.emp_type, f.function, f.emp_category);
-        refreshData();
-    });
-
-    // 5. Department Change -> Just refresh data
-    $('#filterDepartment').on('change', function() {
-        refreshData();
-    });
-
-    // 5. Trend Year Change -> Refresh data
+    // Trend Year Change -> Refresh data
     $('#filterTrendYear').on('change', function() {
         refreshData();
     });
@@ -179,25 +188,27 @@ function createVerticalGradient(ctx, area, colorObj) {
     return gradient;
 }
 
+// Helper: รวบรวมค่า filter ปัจจุบัน (returns comma-separated strings)
 function getFilters() {
-    const plantSelect = document.getElementById('filterPlant');
-    const plantText = plantSelect ? plantSelect.options[plantSelect.selectedIndex].text : '';
     return {
-        plant:        (plantText === 'เลือกทั้งหมด' || plantText === '') ? '' : plantText,
-        emp_type:     $('#filterEmpType').val()     || '',
-        emp_category: $('#filterEmpCategory').val() || '',
-        function:     $('#filterFunction').val()     || '',
-        dept:         $('#filterDepartment').val()   || ''
+        plant:        msPlant       ? msPlant.getValuesString()       : '',
+        emp_type:     msEmpType     ? msEmpType.getValuesString()     : '',
+        emp_category: msEmpCategory ? msEmpCategory.getValuesString() : '',
+        function:     msFunction    ? msFunction.getValuesString()    : '',
+        dept:         msDepartment  ? msDepartment.getValuesString()  : ''
     };
 }
 
-// --- OPTION CLOAD FUNCTIONS (จาก main.js เพื่อให้ Chain ทำงานได้) ---
+// --- OPTION LOAD FUNCTIONS (ใช้ MultiSelect.setOptions) ---
 
 function loadEmployeeTypeOptions(plant = '') {
     const params = new URLSearchParams();
     if (plant) params.set('plant', plant);
     fetch(`api/get_employee_types.php?${params.toString()}`)
-        .then(r => r.json()).then(data => populateSelect('filterEmpType', data, 'TYPE_NAME'));
+        .then(r => r.json())
+        .then(data => {
+            if (msEmpType) msEmpType.setOptions(data, 'TYPE_NAME');
+        });
 }
 
 function loadFunctionOptions(plant = '', empType = '') {
@@ -205,7 +216,11 @@ function loadFunctionOptions(plant = '', empType = '') {
     if (plant)   params.set('plant', plant);
     if (empType) params.set('emp_type', empType);
     fetch(`api/get_functions.php?${params.toString()}`)
-        .then(r => r.json()).then(data => populateSelect('filterFunction', data, 'FUNC_NAME'));
+        .then(r => r.json())
+        .then(data => {
+            if (!Array.isArray(data)) return;
+            if (msFunction) msFunction.setOptions(data, 'FUNC_NAME');
+        });
 }
 
 function loadEmployeeCategoryOptions(plant = '', empType = '', func = '') {
@@ -214,7 +229,11 @@ function loadEmployeeCategoryOptions(plant = '', empType = '', func = '') {
     if (empType) params.set('emp_type', empType);
     if (func)    params.set('function', func);
     fetch(`api/get_employee_categories.php?${params.toString()}`)
-        .then(r => r.json()).then(data => populateSelect('filterEmpCategory', data, 'EMP_CATEGORY_FULL'));
+        .then(r => r.json())
+        .then(data => {
+            if (!Array.isArray(data)) return;
+            if (msEmpCategory) msEmpCategory.setOptions(data, 'EMP_CATEGORY_FULL');
+        });
 }
 
 function loadDepartmentOptions(plant = '', empType = '', func = '', empCat = '') {
@@ -224,23 +243,11 @@ function loadDepartmentOptions(plant = '', empType = '', func = '', empCat = '')
     if (func)    params.set('function', func);
     if (empCat)  params.set('emp_category', empCat);
     fetch(`api/get_departments.php?${params.toString()}`)
-        .then(r => r.json()).then(data => populateSelect('filterDepartment', data, 'DEPT_NAME'));
-}
-
-function populateSelect(id, data, key) {
-    const select = document.getElementById(id);
-    if (!select || !Array.isArray(data)) return;
-    const currentVal = select.value;
-    select.innerHTML = (id.includes('Plant') || id.includes('EmpCategory') || id.includes('EmpType')) ? '<option value="">เลือกทั้งหมด</option>' : '<option value="">ทั้งหมด</option>';
-    data.forEach(item => {
-        const val = item[key] || item[key.toLowerCase()] || item.TYPE_NAME || item.FUNC_NAME || item.DEPT_NAME || item.EMP_CATEGORY_FULL;
-        if (val) {
-            const opt = document.createElement('option');
-            opt.value = opt.textContent = val;
-            if (val === currentVal) opt.selected = true;
-            select.appendChild(opt);
-        }
-    });
+        .then(r => r.json())
+        .then(data => {
+            if (!Array.isArray(data)) return;
+            if (msDepartment) msDepartment.setOptions(data, 'DEPT_NAME');
+        });
 }
 
 function fetchHeadcountData(month = '', filters = {}) {
@@ -297,6 +304,7 @@ function updateKPIs(kpi) {
         'kpi-sub-thai': kpi.sub_thai,
         'kpi-sub-mm': kpi.sub_myanmar,
         'kpi-sub-cam': kpi.sub_cambodia,
+        'kpi-sub': kpi.sub,
         'kpi-other': kpi.other,
         'kpi-male-pct': kpi.male_pct + '%',
         'kpi-female-pct': kpi.female_pct + '%'
@@ -465,7 +473,7 @@ function renderPlantChart(dataSeries) {
 function renderTypeChart(dataSeries, totalHeadcount) {
     const labels = dataSeries.map(d => d.name);
     const values = dataSeries.map(d => d.y);
-    const colorMap = { 'PERM': PALETTE.blue.solid, 'PWC': PALETTE.blue.stop2, 'SUB Thai': PALETTE.red.solid, 'SUB Myanmar': PALETTE.orange.solid, 'SUB Cambodia': PALETTE.green.solid, 'OTHER': PALETTE.gray };
+    const colorMap = { 'PERM': PALETTE.blue.solid, 'PWC': PALETTE.blue.stop2, 'SUB': '#a855f7', 'SUB Thai': PALETTE.red.solid, 'SUB Myanmar': PALETTE.orange.solid, 'SUB Cambodia': PALETTE.green.solid, 'OTHER': PALETTE.gray };
     const colors = dataSeries.map(d => colorMap[d.name] || PALETTE.gray);
 
     getOrCreateChart('typeChart', {
@@ -498,9 +506,16 @@ function renderTypeChart(dataSeries, totalHeadcount) {
                     }
                 },
                 datalabels: { 
-                    display: true, anchor: 'end', align: 'end', 
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] >= 1.0;
+                    },
+                    anchor: 'end',
+                    align: 'end', 
                     offset: window.innerWidth < 768 ? 2 : (window.innerWidth < 1500 ? 5 : 12),
-                    color: '#64748b', font: { weight: '600', size: 11 }, formatter: (val) => val.toFixed(1) + '%' }
+                    color: '#64748b',
+                    font: { weight: '600', size: 11 },
+                    formatter: (val) => val.toFixed(1) + '%'
+                }
             }
         },
         plugins: [{

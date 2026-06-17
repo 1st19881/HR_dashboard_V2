@@ -27,8 +27,7 @@ $sql = "SELECT DISTINCT UPPER(TRIM(m.ORG_SHORT)) AS FUNC_NAME
 
 $binds = [];
 if (!empty($plant)) {
-    $sql .= " AND (
-        CASE 
+    $plantCase = "CASE 
             WHEN SUBSTR(t2.namcent5, 1, 2) = '10' THEN 'SAB'
             WHEN SUBSTR(t2.namcent5, 1, 2) = '11' THEN 'SAAB'
             WHEN SUBSTR(t2.namcent5, 1, 2) = '20' THEN 'SLAB'
@@ -42,19 +41,17 @@ if (!empty($plant)) {
             WHEN SUBSTR(t2.namcent5, 1, 3) BETWEEN '801' AND '890' THEN 'SAM'
             WHEN SUBSTR(t2.namcent5, 1, 2) = '90' THEN 'SC'
             WHEN SUBSTR(t2.namcent5, 1, 2) = '91' THEN 'SAB'
-        END = :plant
-    )";
-    $binds[':plant'] = $plant;
+        END";
+    $sql .= buildMultiFilter($plant, "({$plantCase})", 'plant', $binds);
 }
 
 if (!empty($emp_type)) {
-    $sql .= " AND (
-        CASE 
+    $empTypeCase = "CASE 
             WHEN SUBSTR(t1.codpos, 2, 1) >= '4' THEN 'MANAGER'
             ELSE UPPER((SELECT descodt FROM hrms.tcodcatg WHERE codcodec = t1.typemp))
-        END = :emp_type
-    )";
-    $binds[':emp_type'] = $emp_type;
+        END";
+    $mappedEmpType = "CASE WHEN ({$empTypeCase}) IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN ({$empTypeCase}) ELSE 'OTHER' END";
+    $sql .= buildMultiFilter($emp_type, $mappedEmpType, 'emp_type', $binds);
 }
 
 $sql .= " ORDER BY UPPER(TRIM(m.ORG_SHORT)) ASC";

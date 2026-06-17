@@ -14,7 +14,7 @@ if (!$conn) {
 $plant = $_GET['plant'] ?? '';
 
 $sql = "
-SELECT DISTINCT type_name
+SELECT DISTINCT CASE WHEN type_name IN ('ADMIN','DIRECT','INDIRECT','MANAGER') THEN type_name ELSE 'OTHER' END AS type_name
 FROM (
     SELECT
         CASE 
@@ -45,13 +45,10 @@ FROM (
           'EXC','SGV','SON'
       )
 ) t1
-WHERE type_name IN ('ADMIN', 'DIRECT', 'INDIRECT', 'MANAGER')";
+WHERE 1=1";
 
 $binds = [];
-if (!empty($plant)) {
-    $sql .= " AND PlantNO = :plant";
-    $binds[':plant'] = $plant;
-}
+$sql .= buildMultiFilter($plant, 'PlantNO', 'plant', $binds);
 
 $sql .= " ORDER BY type_name ASC";
 

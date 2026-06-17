@@ -1,7 +1,7 @@
 # Agent Skills — HR Dashboard V1
 
 > คู่มือแนวทางการพัฒนาสำหรับ AI Agent ทำงานร่วมกับโปรเจค HR Dashboard
-> อัปเดตล่าสุด: 18 พฤษภาคม 2026
+> อัปเดตล่าสุด: 8 มิถุนายน 2026
 
 ---
 
@@ -268,6 +268,28 @@ function createVerticalGradient(ctx, area, colorObj) {
 
 - Name: `NOT LIKE '%จุฬางกูร%'`
 - Companies: `AAA, AAS, FUJ, KTK, HHH, MMM, NJN, SWC, TJS, XYZ, TUS, TFE, TSM, TEP, TSL, SOG, SWG, ACM, TAI, GRE, EXC, SGV, SON`
+
+### Turnover Exclusion Logic (Reason Codes)
+
+- Reason Codes (CODEXEMP) ใน `HRMS.TTEXEMPT`: `'11', '12', '15', '16', '17'` จะถูกยกเว้นไม่นำมารวมในการคำนวณการลาออก (Turnover)
+- การคัดกรองใช้ SQL `NOT EXISTS` ร่วมกับ `MAX(rowid)` เพื่อตรวจสอบประวัติเหตุผลลาออกล่าสุดของพนักงานคนนั้นๆ:
+  ```sql
+  NOT EXISTS (
+      SELECT 1 
+      FROM HRMS.TTEXEMPT tex 
+      WHERE tex.CODEMPID = t1.codempid 
+        AND tex.CODEXEMP IN ('11','12','15','16','17') 
+        AND tex.rowid = (
+            SELECT MAX(rowid) 
+            FROM HRMS.TTEXEMPT 
+            WHERE CODEMPID = t1.codempid
+        )
+  )
+  ```
+- ขอบเขตที่ต้องใช้:
+  - `api/get_dashboard_data.php` (Overview page - Turnover chart & summary)
+  - `api/get_turnover_rate.php` (Turnover Rate page - Main chart & Category breakdown charts)
+  - `api/get_turnover_details.php` (Drill-down table/modal lists)
 
 ### Month Snapshot Logic
 
