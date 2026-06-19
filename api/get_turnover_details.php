@@ -146,8 +146,9 @@ SELECT * FROM (
               AND t1.codcomp1 NOT IN (
                   'AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS',
                   'XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE',
-                  'EXC','SGV','SON'
+                  'EXC','SGV','SON','JMX','SC1'
               )
+              AND t1.typemp != 'IU'
         ) t1
     ) m
 ) t1 

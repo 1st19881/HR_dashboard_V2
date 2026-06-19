@@ -22,8 +22,9 @@ $sql = "SELECT DISTINCT UPPER(TRIM(m.ORG_SHORT)) AS FUNC_NAME
           AND t1.codcomp1 NOT IN (
               'AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS',
               'XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE',
-              'EXC','SGV','SON'
-          )";
+              'EXC','SGV','SON','JMX','SC1'
+          )
+          AND t1.typemp != 'IU'";
 
 $binds = [];
 if (!empty($plant)) {

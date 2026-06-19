@@ -76,8 +76,9 @@ try {
               AND t1.codcomp1 NOT IN (
                   'AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS',
                   'XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE',
-                  'EXC','SGV','SON'
+                  'EXC','SGV','SON','JMX','SC1'
               )
+              AND t1.typemp != 'IU'
     ";
 
     $baseSql = "
@@ -157,7 +158,7 @@ try {
     $trendYear = (int)$trend_year;
     $isCurrentYear = ($trendYear == (int)date('Y'));
     $trendExcl = " AND namempt NOT LIKE '%จุฬางกูร%'
-                   AND codcomp1 NOT IN ('AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS','XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE','EXC','SGV','SON')";
+                   AND codcomp1 NOT IN ('AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS','XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE','EXC','SGV','SON','JMX','SC1')";
     $trendWhere = $where . $trendExcl;
 
     if ($isCurrentYear) {

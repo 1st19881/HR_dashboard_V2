@@ -117,8 +117,9 @@ if ($isCurrentYear) {
                   AND te.codcomp1 NOT IN (
                       'AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS',
                       'XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE',
-                      'EXC','SGV','SON'
+                      'EXC','SGV','SON','JMX','SC1'
                   )
+                  AND te.typemp != 'IU'
             ) sub1
         ) sub2 WHERE 1=1 $trendWhere AND staemp < 9
     ) t1";
@@ -192,8 +193,9 @@ if ($isCurrentYear) {
                   AND te.codcomp1 NOT IN (
                       'AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS',
                       'XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE',
-                      'EXC','SGV','SON'
+                      'EXC','SGV','SON','JMX','SC1'
                   )
+                  AND te.typemp != 'IU'
             ) sub1
         ) sub2 WHERE 1=1 $trendWhere
           AND (
@@ -284,8 +286,9 @@ if ($isCurrentYear) {
                       AND te.codcomp1 NOT IN (
                           'AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS',
                           'XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE',
-                          'EXC','SGV','SON'
+                          'EXC','SGV','SON','JMX','SC1'
                       )
+                      AND te.typemp != 'IU'
                 ) sub1
             ) sub2
             WHERE NVL(dtereemp, dteempmt) <= $eom
@@ -359,8 +362,9 @@ $resSql = "SELECT TO_CHAR(dteeffex, 'MM') as mm, COUNT(*) as qty FROM (
               AND te.codcomp1 NOT IN (
                   'AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS',
                   'XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE',
-                  'EXC','SGV','SON'
+                  'EXC','SGV','SON','JMX','SC1'
               )
+              AND te.typemp != 'IU'
         ) sub1
     ) sub2
     WHERE staemp = 9 AND TO_CHAR(dteeffex, 'YYYY') = '$trendYear' $trendExcl
@@ -463,8 +467,9 @@ SELECT resign_reason, COUNT(*) as qty FROM (
               AND te.codcomp1 NOT IN (
                   'AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS',
                   'XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE',
-                  'EXC','SGV','SON'
+                  'EXC','SGV','SON','JMX','SC1'
               )
+              AND te.typemp != 'IU'
         ) sub1
     ) sub2
     WHERE staemp = 9 AND TO_CHAR(dteeffex, 'YYYY') = '$trendYear' $trendExcl
@@ -496,7 +501,7 @@ foreach ($reasonResults as $r) {
     $baseWhere .= $trendExcl;
 
     // Company Exclusion for all queries
-    $compExcl = " AND te.codcomp1 NOT IN ('AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS','XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE','EXC','SGV','SON')";
+    $compExcl = " AND te.codcomp1 NOT IN ('AAA','AAS','FUJ','KTK','HHH','MMM','NJN','SWC','TJS','XYZ','TUS','TFE','TSM','TEP','TSL','SOG','SWG','ACM','TAI','GRE','EXC','SGV','SON','JMX','SC1') AND te.typemp != 'IU'";
 
     foreach ($categories as $cat) {
         $catWhere = $baseWhere . " AND emp_category_by_prefix = :cat";
